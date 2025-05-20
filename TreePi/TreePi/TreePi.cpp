@@ -16,6 +16,7 @@
 #include <random>
 #include <ctime>
 #include <chrono>
+#include <climits>
 
 using namespace std;
 using namespace chrono;
@@ -481,7 +482,7 @@ bool isFeatureTree(Index idx, BPlusTree<Index> BTree) {
 }
 
 // Function to generate chemical graphs and write to a file
-void generateChemicalGraphs(int numGraphs = 10, int numVertices = 20, int numEdges = 30) {
+void generateChemicalGraphs(int numGraphs = 550, int numVertices = 13, int numEdges = 15) {
     // Initialize random number generator
     mt19937 rng(static_cast<unsigned>(time(0))); // Seed with current time
     uniform_int_distribution<int> vertexDist(1, numVertices);
@@ -510,7 +511,7 @@ void generateChemicalGraphs(int numGraphs = 10, int numVertices = 20, int numEdg
                 v2 = vertexDist(rng);
             }
 
-            string label = (edgeLabelDist(rng) == 0) ? "a" : (edgeLabelDist(rng) == 1) ? "b" : "c";
+            string label = (edgeLabelDist(rng) == 0) ? "1" : (edgeLabelDist(rng) == 1) ? "2" : "3";
             edges.push_back(make_tuple(v1, v2, label));
         }
 
@@ -551,12 +552,21 @@ int main() {
     int alpha, beta = 5, eta;
     calculateAlphaBetaEta(sq, database, alpha, eta);
 
+    start = chrono::system_clock::now();
     unordered_map<Graph, unordered_set<int>, GraphHasher> subtreeFrequency = calculateSubtreeFrequency(database); // Calculate subtree frequencies
+    end = chrono::system_clock::now();
+
+    elapsed_seconds = end - start;
+
+    cout << "Mining time:" << elapsed_seconds.count() << endl;
 
     vector<Graph> freqTrees = filterTreesBySupport(subtreeFrequency, alpha, beta, eta); // Filter trees based on support function
+    cout << "Freq tree size:" << freqTrees.size() << endl;
 
     double gamma = 2;
     vector<Graph> finalTrees = shrinkTrees(freqTrees, subtreeFrequency, gamma); // Shrink the trees based on intersection
+
+    cout << "Final tree size:" << finalTrees.size() << endl;
 
     start = chrono::system_clock::now();
 
@@ -571,6 +581,8 @@ int main() {
     end = chrono::system_clock::now();
 
     elapsed_seconds = end - start;
+
+    // cout << "beta: " << beta << " gamma: " << gamma << endl;
 
     cout << "Indexing time:" << elapsed_seconds.count() << endl;
 
@@ -588,6 +600,28 @@ int main() {
     elapsed_seconds = end - start;
 
     cout << "Querying time:" << elapsed_seconds.count() << endl;
+
+    unordered_set<string> canonicalForms;
+    int duplicateCount = 0;
+
+    for (const auto& pair : subtreeFrequency) {
+        const Graph& g = pair.first;
+
+        // Wrap graph in Index to get canonical form
+        Index idx(g);
+        string canonical = idx.constructCanonicalForm();
+
+        // Check for duplicates
+        if (canonicalForms.find(canonical) != canonicalForms.end()) {
+            duplicateCount++;
+        } else {
+            canonicalForms.insert(canonical);
+        }
+    }
+
+    cout << "Total mined trees: " << subtreeFrequency.size() << endl;
+    cout << "Unique canonical trees: " << canonicalForms.size() << endl;
+    cout << "Duplicate trees: " << duplicateCount << endl;
         
     return 0;
 }
